@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Set
 
 
 def read_wordlist(filename: str):
@@ -17,10 +17,12 @@ class TrieNode:
     def __init__(self, val: str):
         self.val: str = val
         self.children: Dict[str, List[TrieNode]] = defaultdict(list)
-        self.end_node: bool = False
+        self.end_node: str = ''
 
     def __repr__(self):
-        child_strings = [f"{key}->{val.val}" for key, val in self.children.items()]
+        child_strings = []
+        for key, value in self.children.items():
+            child_strings.append(f"{key}->{''.join(child.val for child in value)}")
         return f"Node({self.val}) -> ({' '.join(child_strings)})"
 
 
@@ -40,6 +42,12 @@ class ProfanityTrie:
     CHARS_MAP_SETS = {key: set(value) for key, value in CHARS_MAPPING.items()}
 
     wordlist = "~/opt/anaconda3/envs/ziprecruiter/lib/python3.8/site-packages/better_profanity/profanity_wordlist.txt"
+
+    separators = " \t_.,\n"
+
+    @staticmethod
+    def is_separator(char: str) -> bool:
+        return char in ProfanityTrie.separators
 
     def __init__(self, words=None, mapping: dict = None, debug=False):
         self.debug = debug
@@ -83,7 +91,7 @@ class ProfanityTrie:
                         nxt = c_children[-1]
                 pointer = nxt  # advance
             if pointer is not self.head_node:
-                pointer.end_node = True
+                pointer.end_node = word
 
         if self.debug:
             # bfs
@@ -93,16 +101,24 @@ class ProfanityTrie:
                 for node in nodes:
                     print(node)
                     for child in node.children.values():
-                        new_nodes.add(child)
+                        new_nodes.update(child)
                 nodes = new_nodes
 
-    def check_text(self, string: str) -> int:
-        pointers: List[TrieNode] = []
+    def check_text(self, string: str, allow_repititions: bool = True) -> int:
+        pointers: Set[TrieNode] = set()
         string = string.lower()
         profanity_counter = 0
 
         # iterate over each character in string
+        word_start = True
         for c in string:
+            if ProfanityTrie.is_separator(c):
+                word_start = True
+                pointers = set()
+            elif word_start and c in self.head_node.children:
+                pointers.update(self.head_node.children[c])
+                word_start = False
+                continue
             new_pointers = set()
             if self.debug:
                 print('pointers:', pointers)
@@ -112,26 +128,25 @@ class ProfanityTrie:
                         if new_pointer.end_node:
                             profanity_counter += 1
                             if self.debug:
-                                print('word found terminating with', c)
+                                print(new_pointer.end_node, 'found')
                         else:
                             if self.debug:
                                 print('appending pointer', new_pointer.val)
                         new_pointers.add(new_pointer)  # advance
                 # allow additional repeated characters after all repetitions have been traversed
-                if c == pointer.val or \
-                        (pointer.val in ProfanityTrie.CHARS_MAP_SETS and c in ProfanityTrie.CHARS_MAP_SETS[pointer.val]):
-                    new_pointers.add(pointer)  # don't advance
+                if allow_repititions:
+                    if c == pointer.val or \
+                            (pointer.val in ProfanityTrie.CHARS_MAP_SETS and c in ProfanityTrie.CHARS_MAP_SETS[pointer.val]):
+                        new_pointers.add(pointer)  # don't advance
                 # else pointer is not continued
 
             pointers = new_pointers  # advance all
-
-            if c in self.head_node.children:
-                pointers.update(self.head_node.children[c])
 
         return profanity_counter
 
 
 if __name__ == '__main__':
+
     pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=False)
-    pf = ProfanityTrie()
+    pf = ProfanityTrie(debug=True)
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick saa@ax vap" * 50))
