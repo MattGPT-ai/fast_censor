@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "fast-censor"
+version = "0.1.0"
+description = "an extremely fast and efficient package for finding and censoring words from text while allowing for variations, such as repeated characters and character substitutions"
+authors = [ "Matt Buchovecky <mbuchove@gmail.com>" ]
+license = "MIT"
+readme = "README.md"
+homepage = ""
+repository = ""
+classifiers = [
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+packages = [
+    { include = "my_package", from = "lib" },
+    { include = "extra_package/**/*.py" },
+]
+#include = []
+#exclude = []
+
+[tool.poetry.dependencies]
+python = "^3.7"
+cython = "~0.29.13"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/python-poetry/poetry/issues"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
