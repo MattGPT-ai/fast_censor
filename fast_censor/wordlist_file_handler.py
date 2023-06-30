@@ -1,64 +1,63 @@
-from os import path
-from typing import Generator
+"""this class handles reading / writing and encrypting / decrypting files for word lists"""
 
-import cryptography
+from os import path
+import sys
+from typing import List
+
 from cryptography.fernet import Fernet
 
 
-keyfile_path = "keyfile"
-infile_path = "profanity_wordlist.txt"
-outfile_path = "profanity_wordlist_encrypted.txt"
-write_bytes = True
+class WordListHandler:
+    """class that handles reading / decrypting files and writing new files"""
 
-write_opts = 'wb' if write_bytes else 'w'
-if write_bytes:
-    newline = b'\n'
-    read_opts = 'rb'
-    write_opts = 'wb'
-else:
-    newline = '\n'
-    read_opts = 'r'
-    write_opts = 'w'
-    
-outfile = open(outfile_path, write_opts) 
+    def __init__(self, keyfile_path: str = "keyfile"):
 
-class Encrypter:
-    pass
+        self.keyfile_path = keyfile_path
+        if path.isfile(self.keyfile_path):
+            with open(self.keyfile_path, 'rb') as keyfile:
+                self.key = keyfile.read()
+        else:
+            print(f"warning, keyfile path {self.keyfile_path} is not present", file=sys.stderr)
+            self.key = Fernet.generate_key()  # this is your "password"
+            with open(self.keyfile_path, 'wb') as keyfile:
+                keyfile.write(self.key)
 
-if path.isfile(keyfile_path):
-    keyfile = open(keyfile_path, 'rb')
-    with open(keyfile_path, 'rb') as keyfile:
-        key = keyfile.read()
-else:
-    key = Fernet.generate_key()  # this is your "password"
-    with open(keyfile_path, 'wb') as keyfile:
-        keyfile.write(key)
+        self.cipher_suite = Fernet(self.key)
 
-cipher_suite = Fernet(key)
+    @staticmethod
+    def read_file_lines(file_path: str) -> List[str]:
+        """reads file at path and returns lines as a list of strings"""
+        with open(file_path, 'r') as infile:
+            return infile.readlines()
 
+    @staticmethod
+    def write_file_lines(lines: List[str], file_path: str) -> None:
+        """writes list of strings as lines to file path"""
+        with open(file_path, 'w') as outfile:
+            outfile.writelines(lines)
 
-#def encrypt(igen: Generator, cipher):
-with open(infile_path) as infile: 
-    for line in infile.readlines():
-        encrypted_line = cipher_suite.encrypt(line.encode())
-        if not write_bytes:
-            encrypted_line = encrypted_line.decode()
-        outfile.write(encrypted_line)
-        outfile.write(newline)
+    def decrypt_string(self, encrypted_string: str) -> str:
+        """takes string (not bytes) and decrypts using your cypher. returns string"""
+        return self.cipher_suite.decrypt(encrypted_string.encode()).decode()
 
-outfile.close()
+    def encrypt_string(self, string: str) -> str:
+        """takes regular string and encrypts using your cypher, returns string"""
+        return self.cipher_suite.encrypt(string.encode()).decode()
 
+    def read_and_decrypt_file(self, encrypted_file_path: str) -> List[str]:
+        """read an encrypted file and return decrypted lines"""
+        lines = WordListHandler.read_file_lines(encrypted_file_path)
+        return [self.decrypt_string(line) for line in lines]
 
-def decrypt(lines, read_bytes: bool = False) -> None:
-    pass
-
-decoded_file = open("decoded.txt", 'w')
-with open(outfile_path, read_opts) as encrypted_file:
-    for encrypted_line in encrypted_file.readlines():
-        decrypted_line = cipher_suite.decrypt(encrypted_line)
-        decoded_file.write(decrypted_line.decode())
-decoded_file.close()
+    def encrypt_and_write_lines(self, lines: List[str], outfile_path) -> None:
+        """encrypt strings in lines and write to outfile path"""
+        encrypted_lines = [self.encrypt_string(line) for line in lines]
+        with open(outfile_path) as outfile:
+            outfile.writelines(encrypted_lines)
 
 
-if __name__ == "__main__":  # decrypt 
-    decrypt(5, True)
+if __name__ == "__main__":  # decrypt
+    decrypted_path = "profanity_wordlist.txt"
+    encrypted_path = "profanity_wordlist_encrypted.txt"
+
+    handler = WordListHandler()
