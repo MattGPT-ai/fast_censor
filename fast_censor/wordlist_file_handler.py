@@ -56,6 +56,12 @@ class WordListHandler:
             outfile.writelines(encrypted_lines)
 
 
+def get_complete_path_of_file(filename):
+    """Join the path of the current directory with the input filename."""
+    root = path.abspath(path.dirname(__file__))
+    return path.join(root, filename)
+
+
 if __name__ == "__main__":  # decrypt
     decrypted_path = "profanity_wordlist.txt"
     encrypted_path = "profanity_wordlist_encrypted.txt"

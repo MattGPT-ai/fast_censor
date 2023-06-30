@@ -1,9 +1,12 @@
+"""Profanity check Trie
+this class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
+
 import os
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Union, Optional, Generator
 
 
-def read_wordlist(filename: str):
+def read_wordlist(filename: str, encryption_keyfile: str = None):
     """Return words from a wordlist file."""
     with open(filename, encoding="utf-8") as wordlist_file:
         for row in iter(wordlist_file):
@@ -12,18 +15,12 @@ def read_wordlist(filename: str):
                 yield row
 
 
-def get_complete_path_of_file(filename):
-    """Join the path of the current directory with the input filename."""
-    root = os.path.abspath(os.path.dirname(__file__))
-    return os.path.join(root, filename)
-
-
 class TrieNode:
     def __init__(self, val: str):
         """each node value should be a char"""
         self.val: str = val
         self.children: Dict[str, List[TrieNode]] = defaultdict(list)
-        self.end_node_string: str = ''
+        self.end_node_string: str = ''  # None may be more appropriate
 
     def __repr__(self):
         child_strings = []
@@ -50,7 +47,7 @@ class ProfanityTrie:
     delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
 
     def is_delimiter(self, char: str) -> bool:
-        """"""
+        """tells you if a character is a delimiter"""
         return char in self.delimiters
 
     def set_delimiters(self, delimiters):
@@ -59,7 +56,7 @@ class ProfanityTrie:
         else:
             self.delimiters = {delim for delim in delimiters}
 
-    def __init__(self, words=None, wordlist="profanity_wordlist.txt", mapping: dict = None, debug: bool=False,
+    def __init__(self, words=None, wordlist="profanity_wordlist.txt", mapping: dict = None, debug: bool = False,
                  delimiters: Union[Set, str] = None):
         """requires: words or wordlist
         words - set of words to be filtered
@@ -79,9 +76,44 @@ class ProfanityTrie:
         if self.debug:
             print(f"processing {len(self.words)} words")
 
-        # the primary data structure is a Trie
         self.head_node: TrieNode = TrieNode('')
         self.build_trie()
+
+    def add_word(self, word: str) -> Optional[TrieNode]:
+        """adds word to trie structure"""
+
+        if not word:
+            return
+
+        pointer = self.head_node
+        for c in word.lower():
+            # find next
+            c_children = pointer.children.get(c)
+            if c_children is None:
+                nxt = TrieNode(c)
+                if self.debug:
+                    print('created node', nxt)
+                chars = self.mapping.get(c)
+                if chars is None:
+                    chars = tuple(c)
+                for char in chars:
+                    pointer.children[char].append(nxt)
+                    if self.debug:
+                        print(f"set {pointer.val} node child {char} to {nxt.val}")
+            else:  # character already
+                for child in c_children:
+                    if child.val == c:
+                        nxt = child
+                        break
+                else:  # character does not yet lead to
+                    c_children.append(TrieNode(c))
+                    nxt = c_children[-1]
+            pointer = nxt  # advance
+        if pointer is not self.head_node:
+            if self.debug and pointer.end_node_string:
+                print('already endz', pointer.end_node_string)
+            pointer.end_node_string = word
+            return pointer
 
     def build_trie(self):
 
@@ -90,36 +122,7 @@ class ProfanityTrie:
 
         # populate trie with list of words, incorporating mapping
         for word in self.words:
-            if not word:
-                continue
-            pointer = self.head_node
-            for c in word.lower():
-                # find next
-                c_children = pointer.children.get(c)
-                if c_children is None:
-                    nxt = TrieNode(c)
-                    if self.debug:
-                        print('created node', nxt)
-                    chars = self.mapping.get(c)
-                    if chars is None:
-                        chars = tuple(c)
-                    for char in chars:
-                        pointer.children[char].append(nxt)
-                        if self.debug:
-                            print(f"set {pointer.val} node child {char} to {nxt.val}")
-                else:  # character already
-                    for child in c_children:
-                        if child.val == c:
-                            nxt = child
-                            break
-                    else:  # character does not yet lead to
-                        c_children.append(TrieNode(c))
-                        nxt = c_children[-1]
-                pointer = nxt  # advance
-            if pointer is not self.head_node:
-                if self.debug and pointer.end_node_string:
-                    print('already endz', pointer.end_node_string)
-                pointer.end_node_string = word
+            self.add_word(word)
 
         if self.debug:
             # breadth-first search
@@ -130,7 +133,18 @@ class ProfanityTrie:
                     print(node)
                     for child in node.children.values():
                         new_nodes.update(child)
+
                 nodes = new_nodes
+
+    def get_words(self) -> Generator[str, None, None]:
+        """performs a depth-first-search of trie and yields words"""
+        node_stack = [self.head_node]
+        while len(node_stack) > 0:
+            node = node_stack.pop()
+            for child in node.children.values():
+                node_stack.extend(child)
+            if node.end_node_string:
+                yield node.end_node_string
 
     def check_text(self, string: str, allow_repetitions: bool = True) -> List[Tuple[int, int]]:
         """checks the given string for instances of profane words matching the word list
@@ -234,6 +248,6 @@ class MatchIterator():  # collections.Iterator
 if __name__ == '__main__':
 
     pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=False)
-    #pf = ProfanityTrie(debug=True)
     pf = ProfanityTrie(debug=True, delimiters={' ', '\t'}, wordlist="clean_wordlist_decrypted.txt")
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
+    print(list(pf.get_words()))
