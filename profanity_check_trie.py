@@ -234,5 +234,6 @@ class MatchIterator():  # collections.Iterator
 if __name__ == '__main__':
 
     pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=False)
-    pf = ProfanityTrie(debug=True)
-    print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap" * 50))
+    #pf = ProfanityTrie(debug=True)
+    pf = ProfanityTrie(debug=True, delimiters={' ', '\t'}, wordlist="clean_wordlist_decrypted.txt")
+    print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
