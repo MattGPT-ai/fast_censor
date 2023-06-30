@@ -10,8 +10,9 @@ from cryptography.fernet import Fernet
 class WordListHandler:
     """class that handles reading / decrypting files and writing new files"""
 
-    def __init__(self, keyfile_path: str = "keyfile"):
+    def __init__(self, keyfile_path: str = "keyfile", debug: bool = False):
 
+        # load key from file
         self.keyfile_path = keyfile_path
         if path.isfile(self.keyfile_path):
             with open(self.keyfile_path, 'rb') as keyfile:
@@ -21,6 +22,10 @@ class WordListHandler:
             self.key = Fernet.generate_key()  # this is your "password"
             with open(self.keyfile_path, 'wb') as keyfile:
                 keyfile.write(self.key)
+
+        self.debug = debug
+        if self.debug:
+            print(f'loaded key {self.key}')
 
         self.cipher_suite = Fernet(self.key)
 
@@ -34,7 +39,9 @@ class WordListHandler:
     def write_file_lines(lines: List[str], file_path: str) -> None:
         """writes list of strings as lines to file path"""
         with open(file_path, 'w') as outfile:
-            outfile.writelines(lines)
+            for line in lines:
+                outfile.write(line)
+                outfile.write('\n')
 
     def decrypt_string(self, encrypted_string: str) -> str:
         """takes string (not bytes) and decrypts using your cypher. returns string"""
@@ -52,8 +59,7 @@ class WordListHandler:
     def encrypt_and_write_lines(self, lines: List[str], outfile_path) -> None:
         """encrypt strings in lines and write to outfile path"""
         encrypted_lines = [self.encrypt_string(line) for line in lines]
-        with open(outfile_path) as outfile:
-            outfile.writelines(encrypted_lines)
+        self.write_file_lines(encrypted_lines, outfile_path)
 
 
 def get_complete_path_of_file(filename):
@@ -63,7 +69,7 @@ def get_complete_path_of_file(filename):
 
 
 if __name__ == "__main__":  # decrypt
-    decrypted_path = "profanity_wordlist.txt"
+    decrypted_path = "profanity_wordlist_decrypted.txt"
     encrypted_path = "profanity_wordlist_encrypted.txt"
 
     handler = WordListHandler()

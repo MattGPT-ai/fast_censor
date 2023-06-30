@@ -1,9 +1,13 @@
 """Profanity check Trie
 this class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
 
+
 import os
+import collections
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple, Union, Optional, Generator
+from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
+
+from wordlist_file_handler import WordListHandler
 
 
 def read_wordlist(filename: str, encryption_keyfile: str = None):
@@ -44,7 +48,7 @@ class ProfanityTrie:
         "t": {"t", "7"},
     }
 
-    delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
+    default_delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
 
     def is_delimiter(self, char: str) -> bool:
         """tells you if a character is a delimiter"""
@@ -52,39 +56,66 @@ class ProfanityTrie:
 
     def set_delimiters(self, delimiters):
         if delimiters is None:
-            self.delimiters = ProfanityTrie.delimiters
+            self.delimiters = ProfanityTrie.default_delimiters
         else:
             self.delimiters = {delim for delim in delimiters}
 
-    def __init__(self, words=None, wordlist="profanity_wordlist.txt", mapping: dict = None, debug: bool = False,
-                 delimiters: Union[Set, str] = None):
+    def __init__(
+        self,
+        words: Optional[Collection[str]] = None,
+        wordlist: Optional[str] = "word_lists/profanity_wordlist_encrypted.txt",
+        wordlist_encrypted: bool = True,  # toggle this to decrypt word file
+        mapping: Optional[Dict[str, Collection[str]]] = None,
+        delimiters: Union[Set, str] = None,
+        strip: Optional[str] = None,  # None strips default whitespace, empty string doesn't strip, else strip chars in value
+        keep_word_set: bool = True,
+        debug: bool = False,
+    ):
         """requires: words or wordlist
         words - set of words to be filtered
         wordlist - path to wordlist file
         mapping - maps string value to set of valid substitutions
         delimiters - characters that separate words, typically whitespace"""
 
+        self.strip = strip
         self.debug = debug
-        self.mapping: dict = ProfanityTrie.CHARS_MAPPING if mapping is None else mapping
-        self.words: list = words
-        if self.words is None:
-            if wordlist:
-                self.words = list(read_wordlist(os.path.expanduser(wordlist)))
-            else:
-                raise ValueError("must provide either wordlist or words")
+        self.mapping: Dict = ProfanityTrie.CHARS_MAPPING if mapping is None else mapping
+        self.delimiters = None
         self.set_delimiters(delimiters)
+
+        self.word_file_handler = WordListHandler(keyfile_path="word_lists/keyfile")
+
+        # save word set for quick writing
+        self.words: Set[str] = set()
+        if words is None:
+            if wordlist:
+                if wordlist_encrypted:
+                    words = set(self.word_file_handler.read_and_decrypt_file(wordlist))
+                else:
+                    words = set(read_wordlist(os.path.expanduser(wordlist)))
+            else:
+                raise ValueError("must provide either wordlist or words!")
         if self.debug:
             print(f"processing {len(self.words)} words")
 
-        self.head_node: TrieNode = TrieNode('')
-        self.build_trie()
+        self.keep_word_set = keep_word_set
+        self.words = None
+
+        self.head_node: Optional[TrieNode] = None
+        self.build_trie(words)
 
     def add_word(self, word: str) -> Optional[TrieNode]:
-        """adds word to trie structure"""
+        """adds word to trie structure and set of words"""
+
+        word = word.strip(self.strip)
 
         if not word:
             return
 
+        if self.words is not None:
+            self.words.add(word)
+
+        # add word to trie
         pointer = self.head_node
         for c in word.lower():
             # find next
@@ -115,29 +146,36 @@ class ProfanityTrie:
             pointer.end_node_string = word
             return pointer
 
-    def build_trie(self):
+    def build_trie(self, words: Union[Set[str], List[str]]):
+        """build the trie structure and populate it with words"""
+
+        if self.keep_word_set:
+            self.words = set()
 
         # the primary data structure is a Trie
         self.head_node = TrieNode('')
 
         # populate trie with list of words, incorporating mapping
-        for word in self.words:
+        while len(words) > 0:
+            word = words.pop()
             self.add_word(word)
 
         if self.debug:
-            # breadth-first search
-            nodes = [self.head_node]
-            while nodes:
-                new_nodes = set()
-                for node in nodes:
-                    print(node)
-                    for child in node.children.values():
-                        new_nodes.update(child)
+            self.bfs()
 
-                nodes = new_nodes
+    def bfs(self):
+        """breadth-first-search and print nodes for debugging"""
+        nodes = [self.head_node]
+        while nodes:
+            new_nodes = set()
+            for node in nodes:
+                print(node)
+                for child in node.children.values():
+                    new_nodes.update(child)
+            nodes = new_nodes
 
     def get_words(self) -> Generator[str, None, None]:
-        """performs a depth-first-search of trie and yields words"""
+        """Performs a depth-first-search of trie and yields words"""
         node_stack = [self.head_node]
         while len(node_stack) > 0:
             node = node_stack.pop()
@@ -146,8 +184,12 @@ class ProfanityTrie:
             if node.end_node_string:
                 yield node.end_node_string
 
+    def has_word(self, word: str) -> bool:
+        """Returns True if word is in trie, else False"""
+        return word in self.words
+
     def check_text(self, string: str, allow_repetitions: bool = True) -> List[Tuple[int, int]]:
-        """checks the given string for instances of profane words matching the word list
+        """Checks the given string for instances of profane words matching the word list
         returns list of index spans of matches"""
 
         pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
@@ -196,6 +238,7 @@ class ProfanityTrie:
         return profanity_matches
 
     def text_has_match(self, text: str):
+        """returns True if text contains any profanity instances"""
         match_iterator = MatchIterator(self, text)
         try:
             next(match_iterator)
@@ -206,8 +249,18 @@ class ProfanityTrie:
     def get_matches(self, text: str):
         return list({match for match in MatchIterator(self, text)})
 
+    def write_words_file(self, outfile_path: str, encrypt: bool = True):
+        sorted_words = sorted(self.words)
+        write_func = self.word_file_handler.encrypt_and_write_lines if encrypt else self.word_file_handler.write_file_lines
+        if encrypt:
+            self.word_file_handler.encrypt_and_write_lines(sorted_words, outfile_path)
+        else:
+            self.word_file_handler.write_file_lines(sorted_words, outfile_path)
 
-class MatchIterator():  # collections.Iterator
+
+class MatchIterator(): # collections.Iterator
+    """used for yielding matches"""
+
     def __init__(self, trie: ProfanityTrie, string: str, allow_repetitions: bool = True):
         self.trie: ProfanityTrie = trie
         self.string: str = string
@@ -247,7 +300,16 @@ class MatchIterator():  # collections.Iterator
 
 if __name__ == '__main__':
 
-    pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=False)
-    pf = ProfanityTrie(debug=True, delimiters={' ', '\t'}, wordlist="clean_wordlist_decrypted.txt")
+    # pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=True)
+    pf = ProfanityTrie(wordlist="word_lists/clean_wordlist_decrypted.txt", wordlist_encrypted=False,
+                       delimiters={' ', '\t'})
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
-    print(list(pf.get_words()))
+    pf.add_word('newword')
+    print(pf.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
+    pf.write_words_file("word_lists/clean_wordlist_encrypted.txt", encrypt=True)
+    print(list(pf.words))
+
+    pf = ProfanityTrie(wordlist="word_lists/profanity_wordlist_encrypted.txt", wordlist_encrypted=True)
+    #pf.text_has_match()
+    #pf.get_matches()
+    #h = WordListHandler()
