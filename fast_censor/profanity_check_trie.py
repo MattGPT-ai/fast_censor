@@ -12,8 +12,15 @@ def read_wordlist(filename: str):
                 yield row
 
 
+def get_complete_path_of_file(filename):
+    """Join the path of the current directory with the input filename."""
+    root = os.path.abspath(os.path.dirname(__file__))
+    return os.path.join(root, filename)
+
+
 class TrieNode:
     def __init__(self, val: str):
+        """each node value should be a char"""
         self.val: str = val
         self.children: Dict[str, List[TrieNode]] = defaultdict(list)
         self.end_node_string: str = ''
@@ -27,39 +34,59 @@ class TrieNode:
 
 class ProfanityTrie:
 
+    # character substitutions that will still register, e.g. leet (1337) speak
     CHARS_MAPPING = {
-        "a": ("a", "@", "*", "4"),
-        "i": ("i", "*", "l", "1"),
-        "o": ("o", "*", "0", "@"),
-        "u": ("u", "*", "v"),
-        "v": ("v", "*", "u"),
-        "l": ("l", "1"),
-        "e": ("e", "*", "3"),
-        "s": ("s", "$", "5"),
-        "t": ("t", "7"),
+        "a": {"a", "@", "*", "4"},  # 'a' can be substituted with '@', '*', '4'
+        "i": {"i", "*", "l", "1"},
+        "o": {"o", "*", "0", "@"},
+        "u": {"u", "*", "v"},
+        "v": {"v", "*", "u"},
+        "l": {"l", "1"},
+        "e": {"e", "*", "3"},
+        "s": {"s", "$", "5"},
+        "t": {"t", "7"},
     }
-    CHARS_MAP_SETS = {key: set(value) for key, value in CHARS_MAPPING.items()}
 
-    wordlist = "profanity_wordlist.txt"
+    delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
 
-    separators = " \t_.,\n"
+    def is_delimiter(self, char: str) -> bool:
+        """"""
+        return char in self.delimiters
 
-    @staticmethod
-    def is_separator(char: str) -> bool:
-        return char in ProfanityTrie.separators
+    def set_delimiters(self, delimiters):
+        if delimiters is None:
+            self.delimiters = ProfanityTrie.delimiters
+        else:
+            self.delimiters = {delim for delim in delimiters}
 
-    def __init__(self, words=None, mapping: dict = None, debug=False):
+    def __init__(self, words=None, wordlist="profanity_wordlist.txt", mapping: dict = None, debug: bool=False,
+                 delimiters: Union[Set, str] = None):
+        """requires: words or wordlist
+        words - set of words to be filtered
+        wordlist - path to wordlist file
+        mapping - maps string value to set of valid substitutions
+        delimiters - characters that separate words, typically whitespace"""
+
         self.debug = debug
-        self.mapping = mapping
         self.mapping: dict = ProfanityTrie.CHARS_MAPPING if mapping is None else mapping
-        self.words = words
+        self.words: list = words
         if self.words is None:
-            self.words: list = list(read_wordlist(os.path.expanduser(ProfanityTrie.wordlist)))
+            if wordlist:
+                self.words = list(read_wordlist(os.path.expanduser(wordlist)))
+            else:
+                raise ValueError("must provide either wordlist or words")
+        self.set_delimiters(delimiters)
         if self.debug:
             print(f"processing {len(self.words)} words")
 
         # the primary data structure is a Trie
         self.head_node: TrieNode = TrieNode('')
+        self.build_trie()
+
+    def build_trie(self):
+
+        # the primary data structure is a Trie
+        self.head_node = TrieNode('')
 
         # populate trie with list of words, incorporating mapping
         for word in self.words:
@@ -90,10 +117,12 @@ class ProfanityTrie:
                         nxt = c_children[-1]
                 pointer = nxt  # advance
             if pointer is not self.head_node:
+                if self.debug and pointer.end_node_string:
+                    print('already endz', pointer.end_node_string)
                 pointer.end_node_string = word
 
         if self.debug:
-            # bfs
+            # breadth-first search
             nodes = [self.head_node]
             while nodes:
                 new_nodes = set()
@@ -103,16 +132,19 @@ class ProfanityTrie:
                         new_nodes.update(child)
                 nodes = new_nodes
 
-    def check_text(self, string: str, allow_repititions: bool = True) -> int:
-        pointers: Set[Tuple] = set()
-        string = string.lower()
-        profanity_counter = 0
-        new_text = list(string)
+    def check_text(self, string: str, allow_repetitions: bool = True) -> List[Tuple[int, int]]:
+        """checks the given string for instances of profane words matching the word list
+        returns list of index spans of matches"""
 
-        # iterate over each character in string
+        pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
+        string = string.lower()  # case-insensitive matching
+        profanity_matches = []
+        new_text = list(string)  # censored text
+
+        # iterate over each character in string and check for matches
         word_start = True
         for i, c in enumerate(string):
-            if ProfanityTrie.is_separator(c):
+            if self.is_delimiter(c):
                 word_start = True
                 pointers = set()
                 #pointers = set(pointer for pointer in pointers if pointer.val == c)
@@ -127,7 +159,7 @@ class ProfanityTrie:
                 if c in pointer.children:
                     for new_pointer in pointer.children[c]:
                         if new_pointer.end_node_string:
-                            profanity_counter += 1
+                            profanity_matches.append((i - length, i + 1))
                             new_text[i-length:i+1] = \
                                 '*' * (length+1)
                             if self.debug:
@@ -137,9 +169,9 @@ class ProfanityTrie:
                                 print('appending pointer', new_pointer.val)
                         new_pointers.add((new_pointer, length+1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
-                if allow_repititions and (c == pointer.val or
-                                          (pointer.val in ProfanityTrie.CHARS_MAP_SETS and c in
-                                           ProfanityTrie.CHARS_MAP_SETS[pointer.val])):
+                if allow_repetitions and (c == pointer.val or
+                                          (pointer.val in self.mapping and c in
+                                           self.mapping[pointer.val])):
                     new_pointers.add((pointer, length+1))  # don't advance
                 # else pointer is not continued
 
@@ -147,7 +179,56 @@ class ProfanityTrie:
         if self.debug:
             print('censored:\t', ''.join(new_text))
 
-        return profanity_counter
+        return profanity_matches
+
+    def text_has_match(self, text: str):
+        match_iterator = MatchIterator(self, text)
+        try:
+            next(match_iterator)
+        except StopIteration:
+            return False
+        return True
+
+    def get_matches(self, text: str):
+        return list({match for match in MatchIterator(self, text)})
+
+
+class MatchIterator():  # collections.Iterator
+    def __init__(self, trie: ProfanityTrie, string: str, allow_repetitions: bool = True):
+        self.trie: ProfanityTrie = trie
+        self.string: str = string
+        self.allow_repetitions: bool = allow_repetitions
+        self.pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
+        self.word_start: bool = True
+        self.i: int = 0
+
+    def __next__(self):
+        while self.i < len(self.string):
+            c = self.string[self.i]
+            if self.trie.is_delimiter(c):
+                word_start = True
+                pointers = set()
+            elif word_start and c in self.trie.head_node.children:
+                pointers.update((child, 1) for child in self.trie.head_node.children[c])
+                word_start = False
+                continue
+            new_pointers = set()
+            if self.trie.debug:
+                print('pointers:', pointers)
+            for pointer, length in pointers:
+                if c in pointer.children:
+                    for new_pointer in pointer.children[c]:
+                        if new_pointer.end_node_string:
+                            yield
+                        new_pointers.add((new_pointer, length+1))  # advance
+                # allow additional repeated characters after all repetitions have been traversed
+                if self.allow_repetitions and (c == pointer.val or
+                                          (pointer.val in self.trie.mapping and c in
+                                           self.trie.mapping[pointer.val])):
+                    new_pointers.add((pointer, length+1))  # don't advance
+                # else pointer is not continued
+
+            pointers = new_pointers  # advance all
 
 
 if __name__ == '__main__':
