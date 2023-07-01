@@ -3,7 +3,6 @@ this class uses the Trie data structure to more efficiently detect and filter ou
 
 
 import os
-import collections
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
 
@@ -20,13 +19,17 @@ def read_wordlist(filename: str, encryption_keyfile: str = None):
 
 
 class TrieNode:
+    """a node in the trie data structure
+    contains a char value, pointers to its children by char, and a flag """
+
     def __init__(self, val: str):
         """each node value should be a char"""
-        self.val: str = val
+        self.val: str = val  # character value
         self.children: Dict[str, List[TrieNode]] = defaultdict(list)
         self.end_node_string: str = ''  # None may be more appropriate
 
     def __repr__(self):
+        """prints out a node value and its child chars"""
         child_strings = []
         for key, value in self.children.items():
             child_strings.append(f"{key}->{''.join(child.val for child in value)}")
@@ -34,6 +37,7 @@ class TrieNode:
 
 
 class ProfanityTrie:
+    """this is the main class that is used for finding matches of words that are to be filtered"""
 
     # character substitutions that will still register, e.g. leet (1337) speak
     CHARS_MAPPING = {
@@ -203,7 +207,6 @@ class ProfanityTrie:
             if self.is_delimiter(c):
                 word_start = True
                 pointers = set()
-                #pointers = set(pointer for pointer in pointers if pointer.val == c)
             elif word_start and c in self.head_node.children:
                 pointers.update((child, 1) for child in self.head_node.children[c])
                 word_start = False
@@ -258,7 +261,7 @@ class ProfanityTrie:
             self.word_file_handler.write_file_lines(sorted_words, outfile_path)
 
 
-class MatchIterator(): # collections.Iterator
+class MatchIterator: # collections.Iterator
     """used for yielding matches"""
 
     def __init__(self, trie: ProfanityTrie, string: str, allow_repetitions: bool = True):
