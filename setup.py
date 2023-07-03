@@ -14,6 +14,9 @@ setup(
         "fast-censor": ["fast_censor/word_lists/*"],
     },
     include_package_data=True,
+    install_requires=[
+        'cryptography>=35.0',
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
