@@ -6,16 +6,7 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
 
-from wordlist_file_handler import WordListHandler
-
-
-def read_wordlist(filename: str, encryption_keyfile: str = None):
-    """Return words from a wordlist file."""
-    with open(filename, encoding="utf-8") as wordlist_file:
-        for row in iter(wordlist_file):
-            row = row.strip()
-            if row != "":
-                yield row
+from fast_censor.wordlist_file_handler import WordListHandler
 
 
 class TrieNode:
@@ -55,10 +46,11 @@ class ProfanityTrie:
     default_delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
 
     def is_delimiter(self, char: str) -> bool:
-        """tells you if a character is a delimiter"""
+        """tells you if a character is a delimiter which separates words"""
         return char in self.delimiters
 
-    def set_delimiters(self, delimiters):
+    def set_delimiters(self, delimiters: Union[Set[str], str, List[str]]):
+        """set delimiters that determine the boundaries of words for finding matches"""
         if delimiters is None:
             self.delimiters = ProfanityTrie.default_delimiters
         else:
@@ -66,28 +58,31 @@ class ProfanityTrie:
 
     def __init__(
         self,
-        words: Optional[Collection[str]] = None,
-        wordlist: Optional[str] = "word_lists/profanity_wordlist_encrypted.txt",
+        words: Optional[Collection[str]] = None,  # overrides wordlist
+        wordlist: Optional[str] = WordListHandler.get_default_wordlist_path(),
         wordlist_encrypted: bool = True,  # toggle this to decrypt word file
         mapping: Optional[Dict[str, Collection[str]]] = None,
         delimiters: Union[Set, str] = None,
         strip: Optional[str] = None,  # None strips default whitespace, empty string doesn't strip, else strip chars in value
         keep_word_set: bool = True,
+        censor_char: str = "*",
         debug: bool = False,
     ):
         """requires: words or wordlist
         words - set of words to be filtered
         wordlist - path to wordlist file
-        mapping - maps string value to set of valid substitutions
-        delimiters - characters that separate words, typically whitespace"""
+        mapping - maps char (str) value to set of valid substitutions
+        delimiters - characters that separate words, whitespace by default
+        """
 
         self.strip = strip
         self.debug = debug
         self.mapping: Dict = ProfanityTrie.CHARS_MAPPING if mapping is None else mapping
         self.delimiters = None
         self.set_delimiters(delimiters)
+        self.censor_char = censor_char
 
-        self.word_file_handler = WordListHandler(keyfile_path="word_lists/keyfile")
+        self.word_file_handler = WordListHandler()
 
         # save word set for quick writing
         self.words: Set[str] = set()
@@ -96,7 +91,7 @@ class ProfanityTrie:
                 if wordlist_encrypted:
                     words = set(self.word_file_handler.read_and_decrypt_file(wordlist))
                 else:
-                    words = set(read_wordlist(os.path.expanduser(wordlist)))
+                    words = set(WordListHandler.read_wordlist_file(os.path.expanduser(wordlist)))
             else:
                 raise ValueError("must provide either wordlist or words!")
         if self.debug:
@@ -146,7 +141,7 @@ class ProfanityTrie:
             pointer = nxt  # advance
         if pointer is not self.head_node:
             if self.debug and pointer.end_node_string:
-                print('already endz', pointer.end_node_string)
+                print('already ends', pointer.end_node_string)
             pointer.end_node_string = word
             return pointer
 
@@ -199,7 +194,6 @@ class ProfanityTrie:
         pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
         string = string.lower()  # case-insensitive matching
         profanity_matches = []
-        new_text = list(string)  # censored text
 
         # iterate over each character in string and check for matches
         word_start = True
@@ -219,8 +213,6 @@ class ProfanityTrie:
                     for new_pointer in pointer.children[c]:
                         if new_pointer.end_node_string:
                             profanity_matches.append((i - length, i + 1))
-                            new_text[i-length:i+1] = \
-                                '*' * (length+1)
                             if self.debug:
                                 print(new_pointer.end_node_string, 'found')
                         else:
@@ -235,14 +227,12 @@ class ProfanityTrie:
                 # else pointer is not continued
 
             pointers = new_pointers  # advance all
-        if self.debug:
-            print('censored:\t', ''.join(new_text))
 
         return profanity_matches
 
     def text_has_match(self, text: str):
         """returns True if text contains any profanity instances"""
-        match_iterator = MatchIterator(self, text)
+        match_iterator = ProfanityMatchIterator(self, text)
         try:
             next(match_iterator)
         except StopIteration:
@@ -250,18 +240,22 @@ class ProfanityTrie:
         return True
 
     def get_matches(self, text: str):
-        return list({match for match in MatchIterator(self, text)})
+        return list({match for match in ProfanityMatchIterator(self, text)})
 
     def write_words_file(self, outfile_path: str, encrypt: bool = True):
+        """write the wordlist file to specified path
+        if encrypt is set to True (default), each line in the file will be encrypted"""
         sorted_words = sorted(self.words)
-        write_func = self.word_file_handler.encrypt_and_write_lines if encrypt else self.word_file_handler.write_file_lines
+        write_func = self.word_file_handler.encrypt_and_write_lines if encrypt \
+            else self.word_file_handler.write_file_lines
+        write_func(sorted_words, outfile_path)
         if encrypt:
             self.word_file_handler.encrypt_and_write_lines(sorted_words, outfile_path)
         else:
             self.word_file_handler.write_file_lines(sorted_words, outfile_path)
 
 
-class MatchIterator: # collections.Iterator
+class ProfanityMatchIterator:
     """used for yielding matches"""
 
     def __init__(self, trie: ProfanityTrie, string: str, allow_repetitions: bool = True):
@@ -272,7 +266,11 @@ class MatchIterator: # collections.Iterator
         self.word_start: bool = True
         self.i: int = 0
 
+    def __iter__(self):
+        return self
+
     def __next__(self):
+        word_start = True
         while self.i < len(self.string):
             c = self.string[self.i]
             if self.trie.is_delimiter(c):
