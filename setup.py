@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="fast-censor",
-    version="0.2",
+    version="0.3",
     author="Matt Buchovecky",
     author_email="mbuchove@gmail.com",
     description="A fast and flexible utility for censoring and filtering text",
