@@ -1,0 +1,5 @@
+# word lists
+recursive-include fast_censor/word_lists *
+
+#
+include README.md
