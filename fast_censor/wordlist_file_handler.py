@@ -2,7 +2,7 @@
 
 from os import path
 import sys
-from typing import List
+from typing import List, Generator
 
 from cryptography.fernet import Fernet
 
@@ -10,10 +10,12 @@ from cryptography.fernet import Fernet
 class WordListHandler:
     """class that handles reading / decrypting files and writing new files"""
 
-    def __init__(self, keyfile_path: str = "keyfile", debug: bool = False):
+    default_keyfile_name = "keyfile"
+
+    def __init__(self, keyfile_path: str = "", debug: bool = False):
 
         # load key from file
-        self.keyfile_path = keyfile_path
+        self.keyfile_path = keyfile_path if keyfile_path else self.get_default_keyfile_path()
         if path.isfile(self.keyfile_path):
             with open(self.keyfile_path, 'rb') as keyfile:
                 self.key = keyfile.read()
@@ -23,11 +25,11 @@ class WordListHandler:
             with open(self.keyfile_path, 'wb') as keyfile:
                 keyfile.write(self.key)
 
+        self.cipher_suite = Fernet(self.key)
+
         self.debug = debug
         if self.debug:
             print(f'loaded key {self.key}')
-
-        self.cipher_suite = Fernet(self.key)
 
     @staticmethod
     def read_file_lines(file_path: str) -> List[str]:
@@ -61,15 +63,27 @@ class WordListHandler:
         encrypted_lines = [self.encrypt_string(line) for line in lines]
         self.write_file_lines(encrypted_lines, outfile_path)
 
+    def read_wordlist_file(self, filename: str, decrypt: bool = False) -> Generator[str, None, None]:
+        """Return words from a wordlist file."""
+        with open(filename, encoding="utf-8") as wordlist_file:
+            for line in wordlist_file:
+                if line != "":
+                    if decrypt:
+                        line = self.decrypt_string(line)
+                    yield line
 
-def get_complete_path_of_file(filename):
-    """Join the path of the current directory with the input filename."""
-    root = path.abspath(path.dirname(__file__))
-    return path.join(root, filename)
+    @staticmethod
+    def get_complete_path_of_file(filename: str) -> str:
+        """Join the path of the current directory with the input filename."""
+        root = path.abspath(path.dirname(__file__))
+        return path.join(root, filename)
 
+    @classmethod
+    def get_default_keyfile_path(cls) -> str:
+        """returns absolute path to default key file"""
+        return cls.get_complete_path_of_file("word_lists/keyfile")
 
-if __name__ == "__main__":  # decrypt
-    decrypted_path = "profanity_wordlist_decrypted.txt"
-    encrypted_path = "profanity_wordlist_encrypted.txt"
-
-    handler = WordListHandler()
+    @classmethod
+    def get_default_wordlist_path(cls) -> str:
+        """returns absolute path to wordlist file included in package"""
+        return cls.get_complete_path_of_file("word_lists/profanity_wordlist_encrypted.txt")
