@@ -12,8 +12,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 packages = [
-    { include = "my_package", from = "lib" },
-    { include = "extra_package/**/*.py" },
+    { include = "fast_censor" },
 ]
 #include = []
 #exclude = []
