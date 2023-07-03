@@ -91,7 +91,7 @@ class ProfanityTrie:
                 if wordlist_encrypted:
                     words = set(self.word_file_handler.read_and_decrypt_file(wordlist))
                 else:
-                    words = set(WordListHandler.read_wordlist_file(os.path.expanduser(wordlist)))
+                    words = set(self.word_file_handler.read_wordlist_file(os.path.expanduser(wordlist)))
             else:
                 raise ValueError("must provide either wordlist or words!")
         if self.debug:
