@@ -230,6 +230,14 @@ class ProfanityTrie:
 
         return profanity_matches
 
+    def censor_text(self, text: str) -> str:
+        """returns string with all profanity matches replaced with `censor_char`"""
+        text_list = list(text)
+        matches = self.check_text(text)
+        for i, j in matches:
+            text_list[i:j+1] = self.censor_char * (j - i)
+        return ''.join(text_list)
+
     def text_has_match(self, text: str):
         """returns True if text contains any profanity instances"""
         match_iterator = ProfanityMatchIterator(self, text)
