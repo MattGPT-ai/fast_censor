@@ -5,7 +5,7 @@ from fast_censor.wordlist_file_handler import WordListHandler
 
 @pytest.fixture
 def word_list_handler() -> WordListHandler:
-    return WordListHandler(keyfile_path='keyfile')
+    return WordListHandler()
 
 
 @pytest.mark.parametrize("string", ['hello', 'hi there', 'hi\nthere'])

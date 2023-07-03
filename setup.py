@@ -15,7 +15,6 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        'cryptography>=35.0',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

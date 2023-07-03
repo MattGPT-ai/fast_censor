@@ -31,5 +31,5 @@ censor.censor("test text")
 
 ```
 
-### Encryption
-By default, the word lists are encrypted so you can avoid displaying vulgar or offensive words 
+### Encoding
+By default, the word lists are base64-encoded, so you can avoid displaying vulgar or offensive words 
