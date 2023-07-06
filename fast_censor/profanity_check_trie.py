@@ -94,6 +94,12 @@ class FastCensor:
         else:
             self.delimiters = {delim for delim in delimiters}  # use set for quick access
 
+    def get_delimiters(self) -> Set[str]:
+        """Returns:
+            set of delimiter chars
+        """
+        return self.delimiters
+
     def __init__(
         self,
         words: Optional[Collection[str]] = None,  # overrides wordlist
@@ -158,14 +164,12 @@ class FastCensor:
                 nxt = TrieNode(c)
                 if self.debug:
                     print('created node', nxt)
-                chars = self.mapping.get(c)
-                if chars is None:
-                    chars = tuple(c)
+                chars = self.mapping.get(c, tuple(c))
                 for char in chars:
                     pointer.children[char].append(nxt)
                     if self.debug:
                         print(f"set {pointer.val} node child {char} to {nxt.val}")
-            else:  # character already
+            else:  # character already a child of this node
                 for child in c_children:
                     if child.val == c:
                         nxt = child
@@ -203,6 +207,13 @@ class FastCensor:
 
         if self.debug:
             self.bfs()
+
+        return self.head_node
+
+    def get_trie(self) -> TrieNode:
+        """Returns:
+            the head node"""
+        return self.head_node
 
     def bfs(self):
         """breadth-first-search and print nodes for debugging"""
@@ -275,22 +286,22 @@ class FastCensor:
                         else:
                             if self.debug:
                                 print('appending pointer', new_pointer.val)
-                        new_pointers.add((new_pointer, length+1))  # advance
+                        new_pointers.add((new_pointer, length + 1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
                 if allow_repetitions and (c == pointer.val or
                                           (pointer.val in self.mapping and c in
                                            self.mapping[pointer.val])):
-                    new_pointers.add((pointer, length+1))  # don't advance
+                    new_pointers.add((pointer, length + 1))  # don't advance
                 # else pointer is not continued
 
             pointers = new_pointers  # advance all
 
         return profanity_matches
 
-    def censor_text(self, text: str) -> str:
+    def censor_text(self, text: str, allow_repetitions: bool = True) -> str:
         """returns string with all profanity matches replaced with `censor_char`"""
         text_list = list(text)
-        matches = self.check_text(text)
+        matches = self.check_text(text, allow_repetitions)
         for i, j in matches:
             text_list[i:j+1] = self.censor_char * (j - i)
         return ''.join(text_list)
@@ -330,6 +341,7 @@ class ProfanityMatchIterator:
 
     def __next__(self):
         word_start = True
+        pointers = set()
         while self.i < len(self.string):
             c = self.string[self.i]
             if self.trie.is_delimiter(c):
@@ -347,12 +359,12 @@ class ProfanityMatchIterator:
                     for new_pointer in pointer.children[c]:
                         if new_pointer.end_node_string:
                             yield
-                        new_pointers.add((new_pointer, length+1))  # advance
+                        new_pointers.add((new_pointer, length + 1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
                 if self.allow_repetitions and (c == pointer.val or
-                                          (pointer.val in self.trie.mapping and c in
-                                           self.trie.mapping[pointer.val])):
-                    new_pointers.add((pointer, length+1))  # don't advance
+                                               (pointer.val in self.trie.mapping and c in
+                                                self.trie.mapping[pointer.val])):
+                    new_pointers.add((pointer, length + 1))  # don't advance
                 # else pointer is not continued
 
             pointers = new_pointers  # advance all
