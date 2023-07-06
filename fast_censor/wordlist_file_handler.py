@@ -1,7 +1,8 @@
 """this class handles reading / writing and encoding / decoding files for word lists"""
 
-import base64
+from base64 import b64encode, b64decode
 from os import path
+from sys import stderr
 from typing import List, Generator
 
 
@@ -11,12 +12,6 @@ class WordListHandler:
     def __init__(self, debug: bool = False):
 
         self.debug = debug
-
-    @staticmethod
-    def read_file_lines(file_path: str) -> List[str]:
-        """reads file at path and returns lines as a list of strings"""
-        with open(file_path, 'r') as infile:
-            return infile.readlines()
 
     def write_file_lines(self, lines: List[str], file_path: str, encode: bool = False) -> None:
         """writes list of strings as lines to file path"""
