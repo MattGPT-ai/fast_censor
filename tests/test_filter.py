@@ -8,8 +8,8 @@ from fast_censor.word_lists.locate import word_list_dir
 
 class TestFilter(unittest.TestCase):
     def setUp(self):
-        self.profanity_filter = ProfanityTrie(wordlist=f"{word_list_dir}/clean_wordlist_decrypted.txt",
-                                              wordlist_encrypted=False)
+        self.profanity_filter = ProfanityTrie(wordlist=f"{word_list_dir}/clean_wordlist_decoded.txt",
+                                              wordlist_encoded=False)
 
     def test_filter_word(self):
         res = self.profanity_filter.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap")

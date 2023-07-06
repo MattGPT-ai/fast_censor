@@ -60,7 +60,7 @@ class ProfanityTrie:
         self,
         words: Optional[Collection[str]] = None,  # overrides wordlist
         wordlist: Optional[str] = WordListHandler.get_default_wordlist_path(),
-        wordlist_encrypted: bool = True,  # toggle this to decrypt word file
+        wordlist_encoded: bool = True,  # toggle this to decode word file
         mapping: Optional[Dict[str, Collection[str]]] = None,
         delimiters: Union[Set, str] = None,
         strip: Optional[str] = None,  # None strips default whitespace, empty string doesn't strip, else strip chars in value
@@ -88,10 +88,8 @@ class ProfanityTrie:
         self.words: Set[str] = set()
         if words is None:
             if wordlist:
-                if wordlist_encrypted:
-                    words = set(self.word_file_handler.read_and_decrypt_file(wordlist))
-                else:
-                    words = set(self.word_file_handler.read_wordlist_file(os.path.expanduser(wordlist)))
+                words = set(self.word_file_handler.read_wordlist_file(os.path.expanduser(wordlist),
+                                                                      decode=wordlist_encoded))
             else:
                 raise ValueError("must provide either wordlist or words!")
         if self.debug:
@@ -250,17 +248,11 @@ class ProfanityTrie:
     def get_matches(self, text: str):
         return list({match for match in ProfanityMatchIterator(self, text)})
 
-    def write_words_file(self, outfile_path: str, encrypt: bool = True):
+    def write_words_file(self, outfile_path: str, encode: bool = True):
         """write the wordlist file to specified path
-        if encrypt is set to True (default), each line in the file will be encrypted"""
+        if encode is set to True (default), each line in the file will be encoded"""
         sorted_words = sorted(self.words)
-        write_func = self.word_file_handler.encrypt_and_write_lines if encrypt \
-            else self.word_file_handler.write_file_lines
-        write_func(sorted_words, outfile_path)
-        if encrypt:
-            self.word_file_handler.encrypt_and_write_lines(sorted_words, outfile_path)
-        else:
-            self.word_file_handler.write_file_lines(sorted_words, outfile_path)
+        self.word_file_handler.write_file_lines(sorted_words, outfile_path, encode)
 
 
 class ProfanityMatchIterator:
@@ -310,15 +302,15 @@ class ProfanityMatchIterator:
 if __name__ == '__main__':
 
     # pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=True)
-    pf = ProfanityTrie(wordlist="word_lists/clean_wordlist_decrypted.txt", wordlist_encrypted=False,
-                       delimiters={' ', '\t'})
+    pf = ProfanityTrie(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
+                    delimiters={' ', '\t'})
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
     pf.add_word('newword')
     print(pf.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
-    pf.write_words_file("word_lists/clean_wordlist_encrypted.txt", encrypt=True)
+    pf.write_words_file("word_lists/clean_wordlist_encoded.txt", encode=True)
     print(list(pf.words))
 
-    pf = ProfanityTrie(wordlist="word_lists/profanity_wordlist_encrypted.txt", wordlist_encrypted=True)
+    pf = FastCensor(wordlist="word_lists/profanity_wordlist_encoded.txt", wordlist_encoded=True)
     #pf.text_has_match()
     #pf.get_matches()
     #h = WordListHandler()
