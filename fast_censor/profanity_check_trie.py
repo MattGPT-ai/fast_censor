@@ -1,8 +1,7 @@
 """Profanity check Trie
 this class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
 
-
-import os
+from os.path import expanduser
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
 
@@ -88,7 +87,7 @@ class ProfanityTrie:
         self.words: Set[str] = set()
         if words is None:
             if wordlist:
-                words = set(self.word_file_handler.read_wordlist_file(os.path.expanduser(wordlist),
+                words = set(self.word_file_handler.read_wordlist_file(expanduser(wordlist),
                                                                       decode=wordlist_encoded))
             else:
                 raise ValueError("must provide either wordlist or words!")

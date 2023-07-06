@@ -1,8 +1,10 @@
-import unittest
+from unittest import TestCase
+import unittest.main
+
 from fast_censor.wordlist_file_handler import WordListHandler
 
 
-class TestWordListHandler(unittest.TestCase):
+class TestWordListHandler(TestCase):
 
     def setUp(self):
         """initializes word list handler"""

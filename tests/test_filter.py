@@ -1,12 +1,13 @@
 """tests the primary functionality of the fast censor"""
 
-import unittest
+from unittest import TestCase
+import unittest.main
 
 from fast_censor.profanity_check_trie import ProfanityTrie
 from fast_censor.word_lists.locate import word_list_dir
 
 
-class TestFilter(unittest.TestCase):
+class TestFilter(TestCase):
     def setUp(self):
         self.profanity_filter = ProfanityTrie(wordlist=f"{word_list_dir}/clean_wordlist_decoded.txt",
                                               wordlist_encoded=False)
