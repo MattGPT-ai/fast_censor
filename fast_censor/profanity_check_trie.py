@@ -1,5 +1,6 @@
-"""Profanity check Trie
-this class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
+"""This module includes the FastCensor class, which is implemented with a Trie data structure
+It also contains the TrieNode class that builds the profanity Trie, and a match iterator class
+the FastCensor class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
 
 from os.path import expanduser
 from collections import defaultdict
@@ -9,17 +10,29 @@ from fast_censor.wordlist_file_handler import WordListHandler
 
 
 class TrieNode:
-    """a node in the trie data structure
-    contains a char value, pointers to its children by char, and a flag """
+    """A node in the trie data structure.
+    Contains a char value, pointers to its children by char, and a flag.
+
+    Args:
+        val: the char value of the node - pre-substitution
+
+    Attributes:
+        children: dict that maps a char to a list of connected child nodes
+        end_node_string: if this is a non-empty string, the node represents a match
+    """
 
     def __init__(self, val: str):
-        """each node value should be a char"""
+        """Constructor class for TrieNode
+
+        Args:
+            val: char value of the node
+        """
         self.val: str = val  # character value
         self.children: Dict[str, List[TrieNode]] = defaultdict(list)
         self.end_node_string: str = ''  # None may be more appropriate
 
-    def __repr__(self):
-        """prints out a node value and its child chars"""
+    def __repr__(self) -> str:
+        """Returns a string of node's value and its child chars"""
         child_strings = []
         for key, value in self.children.items():
             child_strings.append(f"{key}->{''.join(child.val for child in value)}")
@@ -27,7 +40,20 @@ class TrieNode:
 
 
 class FastCensor:
-    """this is the main class that is used for finding matches of words that are to be filtered"""
+    """This is the main class that is used for filtering (censoring) and finding profanity matches in text
+    requires: words or wordlist
+
+    Args:
+        words: set of words to be filtered - overrides wordlist
+        wordlist: path to wordlist file, is set by default to encoded profanity list included in package
+        wordlist_encoded: boolean that specifies if the provided wordlist is encoded so the file handler decodes lines
+        keep_word_set: set True to keep a word set for fast writing of wordlist. set False to use less memory
+        mapping: maps char (str) value to set of valid substitutions, like 1337code
+        delimiters: characters that separate words, whitespace by default
+        strip: None strips default whitespace, empty string doesn't strip, else strip chars in value when adding a word
+        censor_char: character that is to replace censored words
+        debug: boolean - set True to use verbose output
+    """
 
     # character substitutions that will still register, e.g. leet (1337) speak
     CHARS_MAPPING = {
@@ -42,18 +68,31 @@ class FastCensor:
         "t": {"t", "7"},
     }
 
-    default_delimiters = set(" \t\n_.,")  # characters that signal the end of a word, default
+    default_delimiters = set(" \t\n_.,")  # characters that signal the boundaries of a word, default
 
     def is_delimiter(self, char: str) -> bool:
-        """tells you if a character is a delimiter which separates words"""
+        """
+        Tells you if a character is a delimiter, which separates words when doing matching
+
+        Args:
+            char: character to check if it is a delimiter
+
+        Returns:
+            boolean stating whether provided char is a delimiter character
+        """
         return char in self.delimiters
 
-    def set_delimiters(self, delimiters: Union[Set[str], str, List[str]]):
-        """set delimiters that determine the boundaries of words for finding matches"""
+    def set_delimiters(self, delimiters: Union[Set[str], str, List[str]]) -> None:
+        """
+        Set delimiters that determine the boundaries of words for finding matches
+
+        Args:
+            delimiters: a collection of characters (str) that are to be considered delimiters
+        """
         if delimiters is None:
             self.delimiters = FastCensor.default_delimiters
         else:
-            self.delimiters = {delim for delim in delimiters}
+            self.delimiters = {delim for delim in delimiters}  # use set for quick access
 
     def __init__(
         self,
@@ -62,17 +101,11 @@ class FastCensor:
         wordlist_encoded: bool = True,  # toggle this to decode word file
         mapping: Optional[Dict[str, Collection[str]]] = None,
         delimiters: Union[Set, str] = None,
-        strip: Optional[str] = None,  # None strips default whitespace, empty string doesn't strip, else strip chars in value
+        strip: Optional[str] = None,
         keep_word_set: bool = True,
         censor_char: str = "*",
         debug: bool = False,
     ):
-        """requires: words or wordlist
-        words - set of words to be filtered
-        wordlist - path to wordlist file
-        mapping - maps char (str) value to set of valid substitutions
-        delimiters - characters that separate words, whitespace by default
-        """
 
         self.strip = strip
         self.debug = debug
@@ -94,14 +127,18 @@ class FastCensor:
         if self.debug:
             print(f"processing {len(self.words)} words")
 
+        self.words = None  # by default, do not save word set
         self.keep_word_set = keep_word_set
-        self.words = None
 
         self.head_node: Optional[TrieNode] = None
         self.build_trie(words)
 
     def add_word(self, word: str) -> Optional[TrieNode]:
-        """adds word to trie structure and set of words"""
+        """Adds word to trie structure and set of words
+
+        word: string to add to trie.
+
+        Returns: added node if word is added, else None"""
 
         word = word.strip(self.strip)
 
@@ -117,6 +154,7 @@ class FastCensor:
             # find next
             c_children = pointer.children.get(c)
             if c_children is None:
+                # create new node
                 nxt = TrieNode(c)
                 if self.debug:
                     print('created node', nxt)
@@ -142,8 +180,15 @@ class FastCensor:
             pointer.end_node_string = word
             return pointer
 
-    def build_trie(self, words: Union[Set[str], List[str]]):
-        """build the trie structure and populate it with words"""
+    def build_trie(self, words: Union[Set[str], List[str]]) -> TrieNode:
+        """Builds the trie structure and populate it with words
+
+        Args:
+            words: Collection of string words to be added to trie
+
+        Returns:
+            the head node
+        """
 
         if self.keep_word_set:
             self.words = set()
@@ -181,12 +226,27 @@ class FastCensor:
                 yield node.end_node_string
 
     def has_word(self, word: str) -> bool:
-        """Returns True if word is in trie, else False"""
-        return word in self.words
+        """Returns True if word is in trie, else False.
+        Only checks for the original value of the word, without substitutions or repetitions"""
+        if self.words is not None:
+            return word in self.words
+        node = self.head_node
+        for c in word:
+            if c in node.children:
+                node = node.children[c]
+            else:
+                return False
+        return node.end_node_string == word
 
     def check_text(self, string: str, allow_repetitions: bool = True) -> List[Tuple[int, int]]:
         """Checks the given string for instances of profane words matching the word list
-        returns list of index spans of matches"""
+        Args:
+            string: the string to check for profanity matches
+            allow_repetitions: a single character or its substitutions can be repeated any number of times and still,
+                                e.g. caaaaaaat would match cat
+
+        Returns:
+             list of index spans of matches, represented as tuples of start and end index"""
 
         pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
         string = string.lower()  # case-insensitive matching
