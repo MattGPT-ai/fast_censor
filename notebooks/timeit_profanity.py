@@ -62,7 +62,7 @@ print(asizeof.asized(profanity_check))
 import sys, profanity_check_trie, better_profanity
 
 if 'pf' not in vars():
-    pf = profanity_check_trie.ProfanityTrie()
+    pf = profanity_check_trie.FastCensor()
 
 tests = ['rii11ick', 'ajbaoa', "You p1ec3 of fUdge.",
          'fvudge', 'fvudcge', 'fuvdge', 'fuudge', 'Spl1t', '', 'mbass', 'fudge', 'ifudge']

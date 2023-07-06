@@ -26,7 +26,7 @@ class TrieNode:
         return f"Node({self.val}) -> ({' '.join(child_strings)})"
 
 
-class ProfanityTrie:
+class FastCensor:
     """this is the main class that is used for finding matches of words that are to be filtered"""
 
     # character substitutions that will still register, e.g. leet (1337) speak
@@ -51,7 +51,7 @@ class ProfanityTrie:
     def set_delimiters(self, delimiters: Union[Set[str], str, List[str]]):
         """set delimiters that determine the boundaries of words for finding matches"""
         if delimiters is None:
-            self.delimiters = ProfanityTrie.default_delimiters
+            self.delimiters = FastCensor.default_delimiters
         else:
             self.delimiters = {delim for delim in delimiters}
 
@@ -76,11 +76,11 @@ class ProfanityTrie:
 
         self.strip = strip
         self.debug = debug
-        self.mapping: Dict = ProfanityTrie.CHARS_MAPPING if mapping is None else mapping
         self.delimiters = None
         self.set_delimiters(delimiters)
         self.censor_char = censor_char
 
+        self.mapping: Dict = FastCensor.CHARS_MAPPING if mapping is None else mapping
         self.word_file_handler = WordListHandler()
 
         # save word set for quick writing
@@ -257,8 +257,8 @@ class ProfanityTrie:
 class ProfanityMatchIterator:
     """used for yielding matches"""
 
-    def __init__(self, trie: ProfanityTrie, string: str, allow_repetitions: bool = True):
-        self.trie: ProfanityTrie = trie
+    def __init__(self, trie: FastCensor, string: str, allow_repetitions: bool = True):
+        self.trie: FastCensor = trie
         self.string: str = string
         self.allow_repetitions: bool = allow_repetitions
         self.pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
@@ -301,7 +301,7 @@ class ProfanityMatchIterator:
 if __name__ == '__main__':
 
     # pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=True)
-    pf = ProfanityTrie(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
+    pf = FastCensor(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
                     delimiters={' ', '\t'})
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
     pf.add_word('newword')
