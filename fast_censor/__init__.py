@@ -1,6 +1,5 @@
 from . import profanity_check_trie
 from . import wordlist_file_handler
-from .word_lists import locate
 from .profanity_check_trie import FastCensor
 from .wordlist_file_handler import WordListHandler
 
