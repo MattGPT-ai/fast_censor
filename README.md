@@ -47,6 +47,8 @@ To set your own, for example, you would pass the following into `FastCensor`
 
 `substitutions = {'a': '@4'}`
 
+* all matching is case-insensitive
+
 ### Character repititon
 By default, words will still match even if a matching character is repeated any number of times.
 This includes any valid substitute for that character
