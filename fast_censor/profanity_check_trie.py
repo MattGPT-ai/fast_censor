@@ -377,12 +377,12 @@ class ProfanityMatchIterator:
 
 if __name__ == '__main__':
 
-    # pf = ProfanityTrie(words=['test', 'sax', 'vup'], debug=True)
     pf = FastCensor(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
                     delimiters={' ', '\t'})
     print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
     pf.add_word('newword')
     print(pf.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
+    pf.remove_word("fudge")
     pf.write_words_file("word_lists/clean_wordlist_encoded.txt", encode=True)
     print(list(pf.words))
 

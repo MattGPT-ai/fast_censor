@@ -33,8 +33,8 @@ censor_clean = fast_censor.FastCensor(
 )
 
 # censor texts or simply get the indices of matches
-matches = censor_clean.check_text("this text is for riii1ick")
-# >>> 
+matches = censor_clean.check_text("this bat is for riii1ick")
+# >>> [(5, 9), (17, 25)]
 censored_text = censor_clean.censor("fuuudge you")
 # >>> "******* you"
 ```
