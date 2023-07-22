@@ -306,7 +306,7 @@ class FastCensor:
         text_list = list(text)
         matches = self.check_text(text, allow_repetitions)
         for i, j in matches:
-            text_list[i:j+1] = self.censor_char * (j - i)
+            text_list[i:j] = self.censor_char * (j - i)
         return ''.join(text_list)
 
     def text_has_match(self, text: str):
