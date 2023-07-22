@@ -5,8 +5,6 @@ from os import path
 from sys import stderr
 from typing import List, Generator
 
-from fast_censor.word_lists.locate import word_list_dir
-
 
 class WordListHandler:
     """Class that handles reading / decoding and writing / encoding word list files
@@ -78,6 +76,7 @@ class WordListHandler:
             filename: just the filename of file included in package (see MANIFEST.in) - not including package directory
         Returns:
             path of package file matching filename"""
+        word_list_dir = path.abspath(path.dirname(__file__))
         return path.join(word_list_dir, filename)
 
     @classmethod
