@@ -80,9 +80,9 @@ class WordListHandler:
         return path.join(word_list_dir, filename)
 
     @classmethod
-    def get_default_wordlist_path(cls) -> str:
+    def get_default_wordlist_path(cls, default_filename: str = "profanity_wordlist_encoded.txt") -> str:
         """Get absolute path to wordlist file included in package
         Returns:
             path to wordlist file as string
         """
-        return cls.get_path_of_package_file("word_lists/profanity_wordlist_encoded.txt")
+        return cls.get_path_of_package_file(f"word_lists/{default_filename}")

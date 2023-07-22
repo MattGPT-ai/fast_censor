@@ -48,7 +48,7 @@ class FastCensor:
         wordlist: path to wordlist file, is set by default to encoded profanity list included in package
         wordlist_encoded: boolean that specifies if the provided wordlist is encoded so the file handler decodes lines
         keep_word_set: set True to keep a word set for fast writing of wordlist. set False to use less memory
-        mapping: maps char (str) value to set of valid substitutions, like 1337code
+        substitutions: maps char (str) value to set of valid substitutions, like 1337code
         delimiters: characters that separate words, whitespace by default
         strip: None strips default whitespace, empty string doesn't strip, else strip chars in value when adding a word
         censor_char: character that is to replace censored words
@@ -56,7 +56,7 @@ class FastCensor:
     """
 
     # character substitutions that will still register, e.g. leet (1337) speak
-    CHARS_MAPPING = {
+    CHAR_SUBSTITUTIONS = {
         "a": {"a", "@", "*", "4"},  # 'a' can be substituted with '@', '*', '4'
         "i": {"i", "*", "l", "1"},
         "o": {"o", "*", "0", "@"},
@@ -68,7 +68,46 @@ class FastCensor:
         "t": {"t", "7"},
     }
 
-    default_delimiters = set(" \t\n_.,")  # characters that signal the boundaries of a word, default
+    default_delimiters = set(" \t\n_.,;:")  # characters that signal the boundaries of a word, default
+
+    def __init__(
+        self,
+        wordlist: Optional[str] = WordListHandler.get_default_wordlist_path(),
+        wordlist_encoded: bool = True,  # toggle this to decode word file
+        words: Union[List[str], Tuple[str], Set[str]] = None,  # overrides wordlist
+        substitutions: Optional[Dict[str, Collection[str]]] = None,
+        delimiters: Union[Set, str] = None,
+        strip: Optional[str] = None,
+        keep_word_set: bool = True,
+        censor_char: str = "*",
+        debug: bool = False,
+    ):
+
+        self.strip = strip
+        self.debug = debug
+        self.delimiters = None
+        self.set_delimiters(delimiters)
+        self.censor_char = censor_char
+
+        self.substitution_map: Dict = FastCensor.CHAR_SUBSTITUTIONS if substitutions is None else substitutions
+        self.word_file_handler = WordListHandler()
+
+        # save word set for quick writing
+        self.words: Set[str] = set()
+        if words is None:
+            if wordlist:
+                words = set(self.word_file_handler.read_wordlist_file(expanduser(wordlist),
+                                                                      decode=wordlist_encoded))
+            else:
+                raise ValueError("must provide either wordlist or words!")
+        if self.debug:
+            print(f"processing {len(self.words)} words")
+
+        self.words = None  # by default, do not save word set
+        self.keep_word_set = keep_word_set
+
+        self.head_node: Optional[TrieNode] = None
+        self.build_trie(words)
 
     def is_delimiter(self, char: str) -> bool:
         """
@@ -100,44 +139,8 @@ class FastCensor:
         """
         return self.delimiters
 
-    def __init__(
-        self,
-        words: Optional[Collection[str]] = None,  # overrides wordlist
-        wordlist: Optional[str] = WordListHandler.get_default_wordlist_path(),
-        wordlist_encoded: bool = True,  # toggle this to decode word file
-        mapping: Optional[Dict[str, Collection[str]]] = None,
-        delimiters: Union[Set, str] = None,
-        strip: Optional[str] = None,
-        keep_word_set: bool = True,
-        censor_char: str = "*",
-        debug: bool = False,
-    ):
-
-        self.strip = strip
-        self.debug = debug
-        self.delimiters = None
-        self.set_delimiters(delimiters)
-        self.censor_char = censor_char
-
-        self.mapping: Dict = FastCensor.CHARS_MAPPING if mapping is None else mapping
-        self.word_file_handler = WordListHandler()
-
-        # save word set for quick writing
-        self.words: Set[str] = set()
-        if words is None:
-            if wordlist:
-                words = set(self.word_file_handler.read_wordlist_file(expanduser(wordlist),
-                                                                      decode=wordlist_encoded))
-            else:
-                raise ValueError("must provide either wordlist or words!")
-        if self.debug:
-            print(f"processing {len(self.words)} words")
-
-        self.words = None  # by default, do not save word set
-        self.keep_word_set = keep_word_set
-
-        self.head_node: Optional[TrieNode] = None
-        self.build_trie(words)
+    def set_substitutions(self, substitutions: Dict[str, Collection[str]]):
+        self.substitution_map = substitutions
 
     def add_word(self, word: str) -> Optional[TrieNode]:
         """Adds word to trie structure and set of words
@@ -164,7 +167,7 @@ class FastCensor:
                 nxt = TrieNode(c)
                 if self.debug:
                     print('created node', nxt)
-                chars = self.mapping.get(c, tuple(c))
+                chars = self.substitution_map.get(c, tuple(c))
                 for char in chars:
                     pointer.children[char].append(nxt)
                     if self.debug:
@@ -289,8 +292,8 @@ class FastCensor:
                         new_pointers.add((new_pointer, length + 1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
                 if allow_repetitions and (c == pointer.val or
-                                          (pointer.val in self.mapping and c in
-                                           self.mapping[pointer.val])):
+                                          (pointer.val in self.substitution_map and c in
+                                           self.substitution_map[pointer.val])):
                     new_pointers.add((pointer, length + 1))  # don't advance
                 # else pointer is not continued
 
@@ -316,6 +319,7 @@ class FastCensor:
         return True
 
     def get_matches(self, text: str):
+        """this function depends on a class that is still a work in progress"""
         return list({match for match in ProfanityMatchIterator(self, text)})
 
     def write_words_file(self, outfile_path: str, encode: bool = True):
@@ -325,6 +329,7 @@ class FastCensor:
         self.word_file_handler.write_file_lines(sorted_words, outfile_path, encode)
 
 
+# TODO: This class is a work in progress
 class ProfanityMatchIterator:
     """used for yielding matches"""
 
@@ -362,8 +367,8 @@ class ProfanityMatchIterator:
                         new_pointers.add((new_pointer, length + 1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
                 if self.allow_repetitions and (c == pointer.val or
-                                               (pointer.val in self.trie.mapping and c in
-                                                self.trie.mapping[pointer.val])):
+                                               (pointer.val in self.trie.substitution_map and c in
+                                                self.trie.substitution_map[pointer.val])):
                     new_pointers.add((pointer, length + 1))  # don't advance
                 # else pointer is not continued
 
