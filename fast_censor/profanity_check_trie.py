@@ -325,70 +325,11 @@ class FastCensor:
             idx += j - i
         return ''.join(text_list)
 
-    def text_has_match(self, text: str):
-        """returns True if text contains any profanity instances"""
-        match_iterator = ProfanityMatchIterator(self, text)
-        try:
-            next(match_iterator)
-        except StopIteration:
-            return False
-        return True
-
-    def get_matches(self, text: str):
-        """this function depends on a class that is still a work in progress"""
-        return list({match for match in ProfanityMatchIterator(self, text)})
-
     def write_words_file(self, outfile_path: str, encode: bool = True):
         """write the wordlist file to specified path
         if encode is set to True (default), each line in the file will be encoded"""
         sorted_words = sorted(self.words)
         self.word_file_handler.write_file_lines(sorted_words, outfile_path, encode)
-
-
-# TODO: This class is a work in progress
-class ProfanityMatchIterator:
-    """used for yielding matches"""
-
-    def __init__(self, trie: FastCensor, string: str, allow_repetitions: bool = True):
-        self.trie: FastCensor = trie
-        self.string: str = string
-        self.allow_repetitions: bool = allow_repetitions
-        self.pointers: Set[Tuple] = set()  # tuple of pointer to node and match length
-        self.word_start: bool = True
-        self.i: int = 0
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        word_start = True
-        pointers = set()
-        while self.i < len(self.string):
-            c = self.string[self.i]
-            if self.trie.is_delimiter(c):
-                word_start = True
-                pointers = set()
-            elif word_start and c in self.trie.head_node.children:
-                pointers.update((child, 1) for child in self.trie.head_node.children[c])
-                word_start = False
-                continue
-            new_pointers = set()
-            if self.trie.debug:
-                print('pointers:', pointers)
-            for pointer, length in pointers:
-                if c in pointer.children:
-                    for new_pointer in pointer.children[c]:
-                        if new_pointer.end_node_string:
-                            yield
-                        new_pointers.add((new_pointer, length + 1))  # advance
-                # allow additional repeated characters after all repetitions have been traversed
-                if self.allow_repetitions and (c == pointer.val or
-                                               (pointer.val in self.trie.substitution_map and c in
-                                                self.trie.substitution_map[pointer.val])):
-                    new_pointers.add((pointer, length + 1))  # don't advance
-                # else pointer is not continued
-
-            pointers = new_pointers  # advance all
 
 
 if __name__ == '__main__':
