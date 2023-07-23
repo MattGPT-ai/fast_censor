@@ -2,8 +2,9 @@
 It also contains the TrieNode class that builds the profanity Trie, and a match iterator class
 the FastCensor class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
 
-from os.path import expanduser
 from collections import defaultdict
+from math import ceil
+from os.path import expanduser
 from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
 
 from fast_censor.wordlist_file_handler import WordListHandler
@@ -51,7 +52,7 @@ class FastCensor:
         substitutions: maps char (str) value to set of valid substitutions, like 1337code
         delimiters: characters that separate words, whitespace by default
         strip: None strips default whitespace, empty string doesn't strip, else strip chars in value when adding a word
-        censor_char: character that is to replace censored words
+        censor_chars: string that is to replace censored words. the sequence will repeat cyclically
         debug: boolean - set True to use verbose output
     """
 
@@ -79,7 +80,7 @@ class FastCensor:
         delimiters: Union[Set, str] = None,
         strip: Optional[str] = None,
         keep_word_set: bool = True,
-        censor_char: str = "*",
+        censor_chars: str = "*#&@",
         debug: bool = False,
     ):
 
@@ -87,7 +88,7 @@ class FastCensor:
         self.debug = debug
         self.delimiters = None
         self.set_delimiters(delimiters)
-        self.censor_char = censor_char
+        self._censor_chars = censor_chars
 
         self.substitution_map: Dict = FastCensor.CHAR_SUBSTITUTIONS if substitutions is None else substitutions
         self.word_file_handler = WordListHandler()
@@ -141,6 +142,9 @@ class FastCensor:
 
     def set_substitutions(self, substitutions: Dict[str, Collection[str]]):
         self.substitution_map = substitutions
+
+    def set_censor_chars(self, censor_chars: Union[str, List[str]]):
+        self._censor_chars = censor_chars
 
     def add_word(self, word: str) -> Optional[TrieNode]:
         """Adds word to trie structure and set of words
@@ -305,8 +309,11 @@ class FastCensor:
         """returns string with all profanity matches replaced with `censor_char`"""
         text_list = list(text)
         matches = self.check_text(text, allow_repetitions)
+        censor_string = self._censor_chars * ceil(sum(j - i for i, j in matches) / len(self._censor_chars))
+        idx = 0  # starting point in censor string
         for i, j in matches:
-            text_list[i:j] = self.censor_char * (j - i)
+            text_list[i:j] = censor_string[idx:idx + j - i]
+            idx += j - i
         return ''.join(text_list)
 
     def text_has_match(self, text: str):
