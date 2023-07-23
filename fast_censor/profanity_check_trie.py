@@ -85,13 +85,13 @@ class FastCensor:
     ):
 
         self.strip = strip
-        self.debug = debug
+        self.debug: bool = debug
         self.delimiters = None
         self.set_delimiters(delimiters)
         self._censor_chars = censor_chars
 
-        self.substitution_map: Dict = FastCensor.CHAR_SUBSTITUTIONS if substitutions is None else substitutions
-        self.word_file_handler = WordListHandler()
+        self.set_substitutions(FastCensor.CHAR_SUBSTITUTIONS if substitutions is None else substitutions)
+        self.word_file_handler: WordListHandler = WordListHandler()
 
         # save word set for quick writing
         self.words: Set[str] = set()
@@ -141,6 +141,15 @@ class FastCensor:
         return self.delimiters
 
     def set_substitutions(self, substitutions: Dict[str, Collection[str]]):
+        """preprocesses character substitutions and sets in FastCensor instance"""
+        self.substitution_map = {}
+        for char, subs in substitutions.items():
+            subs = set(subs)
+            if char not in subs:
+                subs.add(char)
+            if len(subs) <= 2:  # set only becomes more efficient with more than 2 characters
+                subs = ''.join(subs)
+            self.substitution_map[char] = subs
         self.substitution_map = substitutions
 
     def set_censor_chars(self, censor_chars: Union[str, List[str]]):
@@ -171,7 +180,7 @@ class FastCensor:
                 nxt = TrieNode(c)
                 if self.debug:
                     print('created node', nxt)
-                chars = self.substitution_map.get(c, tuple(c))
+                chars = self.substitution_map.get(c, c)
                 for char in chars:
                     pointer.children[char].append(nxt)
                     if self.debug:
