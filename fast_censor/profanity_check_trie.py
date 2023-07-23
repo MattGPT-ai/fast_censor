@@ -384,16 +384,15 @@ class ProfanityMatchIterator:
 
 if __name__ == '__main__':
 
-    pf = FastCensor(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
-                    delimiters={' ', '\t'})
-    print(pf.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
-    pf.add_word('newword')
-    print(pf.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
-    pf.remove_word("fudge")
-    pf.write_words_file("word_lists/clean_wordlist_encoded.txt", encode=True)
-    print(list(pf.words))
+    censor = FastCensor(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
+                        delimiters={' ', '\t'})
+    print(censor.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
+    censor.add_word('newword')
+    print(censor.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
+    #censor.remove_word('bat')
+    censor.write_words_file("word_lists/clean_wordlist_encoded.txt", encode=True)
+    print(list(censor.words))
+    print(censor.censor_text("fuudge there is a b@t over there"))
 
     pf = FastCensor(wordlist="word_lists/profanity_wordlist_encoded.txt", wordlist_encoded=True)
-    #pf.text_has_match()
-    #pf.get_matches()
     #h = WordListHandler()
