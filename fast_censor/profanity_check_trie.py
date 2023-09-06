@@ -49,7 +49,6 @@ class FastCensor:
         words: set of words to be filtered - overrides wordlist
         wordlist: path to wordlist file, is set by default to encoded profanity list included in package
         wordlist_encoded: boolean that specifies if the provided wordlist is encoded so the file handler decodes lines
-        keep_word_set: set True to keep a word set for fast writing of wordlist. set False to use less memory
         substitutions: maps char (str) value to set of valid substitutions, like 1337code
         delimiters: characters that separate words, whitespace by default
         strip: None strips default whitespace, empty string doesn't strip, else strip chars in value when adding a word
@@ -80,7 +79,6 @@ class FastCensor:
         substitutions: Optional[Dict[str, Collection[str]]] = None,
         delimiters: Union[Set, str] = None,
         strip: Optional[str] = None,
-        keep_word_set: bool = True,
         censor_chars: str = "*#&@",
         debug: bool = False,
     ):
@@ -108,9 +106,6 @@ class FastCensor:
             else:
                 raise ValueError("must provide either wordlist or words!")
         self.logger.debug(f"processing {len(self.words)} words")
-
-        self.words = None  # by default, do not save word set
-        self.keep_word_set = keep_word_set
 
         self.head_node: Optional[TrieNode] = None
         self.build_trie(words)
@@ -175,9 +170,6 @@ class FastCensor:
         if not word:
             return
 
-        if self.words is not None:
-            self.words.add(word)
-
         # add word to trie
         pointer = self.head_node
         for c in word.lower():
@@ -224,9 +216,6 @@ class FastCensor:
         Returns:
             the head node
         """
-
-        if self.keep_word_set:
-            self.words = set()
 
         # the primary data structure is a Trie
         self.head_node = TrieNode('')
@@ -276,8 +265,6 @@ class FastCensor:
     def has_word(self, word: str) -> bool:
         """Returns True if word is in trie, else False.
         Only checks for the original value of the word, without substitutions or repetitions"""
-        if self.words is not None:
-            return word in self.words
         node = self.head_node
         for c in word:
             if c in node.children:
@@ -347,21 +334,19 @@ class FastCensor:
     def write_words_file(self, outfile_path: str, encode: bool = True):
         """write the wordlist file to specified path
         if encode is set to True (default), each line in the file will be encoded"""
-        sorted_words = sorted(self.words)
+        sorted_words = sorted(self.get_words())
         self.word_file_handler.write_file_lines(sorted_words, outfile_path, encode)
 
 
 if __name__ == '__main__':
 
     censor = FastCensor(wordlist="word_lists/clean_wordlist_decoded.txt", wordlist_encoded=False,
-                        delimiters={' ', '\t'})
+                        delimiters=" \t,")
     print(censor.check_text("there fuvuudge fvu*dge ri1i1i1liick lady cow f_u_d_g_e saa@ax vap crap" * 50))
     censor.add_word('newword')
     print(censor.check_text("there fvdge fudgey  ri1i1i1liick  f_u_d_g_e cow swirl saa@ax crap newword"))
-    #censor.remove_word('bat')
     censor.write_words_file("word_lists/clean_wordlist_encoded.txt", encode=True)
-    print(list(censor.words))
+    print(list(censor.get_words()))
     print(censor.censor_text("fuudge there is a b@t over there"))
 
     pf = FastCensor(wordlist="word_lists/profanity_wordlist_encoded.txt", wordlist_encoded=True)
-    #h = WordListHandler()
