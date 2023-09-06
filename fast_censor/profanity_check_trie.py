@@ -2,10 +2,11 @@
 It also contains the TrieNode class that builds the profanity Trie, and a match iterator class
 the FastCensor class uses the Trie data structure to more efficiently detect and filter out profanity from a text"""
 
+import logging
 from collections import defaultdict
 from math import ceil
 from os.path import expanduser
-from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection
+from typing import Dict, List, Set, Tuple, Union, Optional, Generator, Collection, Callable
 
 from fast_censor.wordlist_file_handler import WordListHandler
 
@@ -85,11 +86,16 @@ class FastCensor:
     ):
 
         self.strip = strip
-        self.debug: bool = debug
         self.delimiters = None
         self.set_delimiters(delimiters)
         self._censor_chars = censor_chars
 
+        self.debug: bool = debug
+        self.logger = logging.getLogger(__name__)
+        if self.debug:
+            self.logger.setLevel(logging.DEBUG)
+
+        self.substitution_map = None
         self.set_substitutions(FastCensor.CHAR_SUBSTITUTIONS if substitutions is None else substitutions)
         self.word_file_handler: WordListHandler = WordListHandler()
 
@@ -101,8 +107,7 @@ class FastCensor:
                                                                       decode=wordlist_encoded))
             else:
                 raise ValueError("must provide either wordlist or words!")
-        if self.debug:
-            print(f"processing {len(self.words)} words")
+        self.logger.debug(f"processing {len(self.words)} words")
 
         self.words = None  # by default, do not save word set
         self.keep_word_set = keep_word_set
@@ -140,7 +145,10 @@ class FastCensor:
         """
         return self.delimiters
 
-    def set_substitutions(self, substitutions: Dict[str, Collection[str]]):
+    def get_logger(self) -> logging.Logger:
+        return self.logger
+
+    def set_substitutions(self, substitutions: Dict[str, Collection[str]]) -> None:
         """preprocesses character substitutions and sets in FastCensor instance"""
         self.substitution_map = {}
         for char, subs in substitutions.items():
@@ -152,7 +160,7 @@ class FastCensor:
             self.substitution_map[char] = subs
         self.substitution_map = substitutions
 
-    def set_censor_chars(self, censor_chars: Union[str, List[str]]):
+    def set_censor_chars(self, censor_chars: Union[str, List[str]]) -> None:
         self._censor_chars = censor_chars
 
     def add_word(self, word: str) -> Optional[TrieNode]:
@@ -178,13 +186,11 @@ class FastCensor:
             if c_children is None:
                 # create new node
                 nxt = TrieNode(c)
-                if self.debug:
-                    print('created node', nxt)
+                self.logger.debug(f'created node: ({nxt})')
                 chars = self.substitution_map.get(c, c)
                 for char in chars:
                     pointer.children[char].append(nxt)
-                    if self.debug:
-                        print(f"set {pointer.val} node child {char} to {nxt.val}")
+                    self.logger.debug(f"set {pointer.val} node child {char} to {nxt.val}")
             else:  # character already a child of this node
                 for child in c_children:
                     if child.val == c:
@@ -195,8 +201,8 @@ class FastCensor:
                     nxt = c_children[-1]
             pointer = nxt  # advance
         if pointer is not self.head_node:
-            if self.debug and pointer.end_node_string:
-                print('already ends', pointer.end_node_string)
+            if pointer.end_node_string:
+                self.logger.debug(f'word "{pointer.end_node_string}" already ends on this node!')
             pointer.end_node_string = word
             return pointer
 
@@ -222,7 +228,7 @@ class FastCensor:
             self.add_word(word)
 
         if self.debug:
-            self.bfs()
+            self.bfs(self.logger.debug)
 
         return self.head_node
 
@@ -231,13 +237,14 @@ class FastCensor:
             the head node"""
         return self.head_node
 
-    def bfs(self):
-        """breadth-first-search and print nodes for debugging"""
+    def bfs(self, print_func: Callable = print):
+        """breadth-first-search and print nodes for debugging.
+        defaults to print, or you can provide it with e.g. self.logger.info"""
         nodes = [self.head_node]
         while nodes:
             new_nodes = set()
             for node in nodes:
-                print(node)
+                print_func(node)
                 for child in node.children.values():
                     new_nodes.update(child)
             nodes = new_nodes
@@ -290,18 +297,16 @@ class FastCensor:
                 word_start = False
                 continue
             new_pointers = set()
-            if self.debug:
-                print('pointers:', pointers)
+            self.logger.debug('pointers:', pointers)
             for pointer, length in pointers:
                 if c in pointer.children:
                     for new_pointer in pointer.children[c]:
                         if new_pointer.end_node_string:
                             profanity_matches.append((i - length, i + 1))
-                            if self.debug:
-                                print(new_pointer.end_node_string, 'found')
+                            self.logger.debug(f'"{new_pointer.end_node_string}" found')
                         else:
                             if self.debug:
-                                print('appending pointer', new_pointer.val)
+                                self.logger.debug('appending pointer', new_pointer.val)
                         new_pointers.add((new_pointer, length + 1))  # advance
                 # allow additional repeated characters after all repetitions have been traversed
                 if allow_repetitions and (c == pointer.val or
