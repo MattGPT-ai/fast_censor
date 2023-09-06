@@ -206,6 +206,15 @@ class FastCensor:
             pointer.end_node_string = word
             return pointer
 
+    def add_words(self, words: Collection[str]) -> None:
+        """add list of words
+
+        Args:
+            words: Collection of words, such as list, tuple, set, etc. of strings
+        """
+        for word in words:
+            self.add_word(word)
+
     def build_trie(self, words: Union[Set[str], List[str]]) -> TrieNode:
         """Builds the trie structure and populate it with words
 
@@ -251,11 +260,16 @@ class FastCensor:
 
     def get_words(self) -> Generator[str, None, None]:
         """Performs a depth-first-search of trie and yields words"""
-        node_stack = [self.head_node]
+        visited_nodes = {self.head_node, }
+        node_stack = [self.head_node, ]
         while len(node_stack) > 0:
             node = node_stack.pop()
-            for child in node.children.values():
-                node_stack.extend(child)
+            visited_nodes.add(node)
+            for child_list in node.children.values():
+                for child in child_list:
+                    if child not in visited_nodes:
+                        node_stack.append(child)
+                        visited_nodes.add(child)
             if node.end_node_string:
                 yield node.end_node_string
 
