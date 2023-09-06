@@ -2,10 +2,10 @@
 
 ## fast_censor
 
-* A fast and flexible package for filtering out profanity or other strings from text, ~300 times faster than alternatives
+* A fast and flexible package for filtering out profanity or other strings from text, ~100 times faster than alternatives
 * the fastest string utility for profanity detection / censoring
-* allows for detection with repeated characters and character substition
-
+* Allows for detection with repeated characters and character substitution
+* Requires zero dependencies and works for python 3.6 -- 3.11
 
 ## Installation
 
@@ -71,3 +71,9 @@ For example, if `'_'` is a delimiter, "ba_t" would not match "bat"
 ### Encoding
 By default, the word lists are base64-encoded, so you can avoid displaying vulgar or offensive words. 
 If you would like to save a word list in plain text, set `encode=False` in `write_words_file`
+
+
+## Benchmarks
+See `notebooks/benchmarks.ipynb` for details
+
+See: [This Gist](https://gist.github.com/mbuchove/02752cd868b6cc207b0b1261b015be3a)
