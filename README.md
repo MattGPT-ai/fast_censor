@@ -5,9 +5,18 @@
 * A fast and flexible package for filtering out profanity or other strings from text, ~100 times faster than alternatives
 * the fastest string utility for profanity detection / censoring
 * Allows for detection with repeated characters and character substitution
-* Requires zero dependencies and works for python 3.6 -- 3.11
+* Requires zero dependencies and works for python 3.7 -- 3.13
 
 ## Installation
+
+### From PyPi
+```
+pip install fast-censor
+```
+or 
+```
+uv pip install fast-censor
+```
 
 ### From source
 ```
